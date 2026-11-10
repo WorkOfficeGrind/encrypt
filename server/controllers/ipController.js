@@ -4,6 +4,89 @@ const axios = require("axios");
 const { cloudinary } = require("../config/cloudinary");
 const emailService = require("../services/email");
 
+const recordVisit = async (req, res) => {
+  try {
+    // Get visitor IP from the request
+    let ip =
+      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress;
+
+    // Normalize IPv6 localhost / mapped IPv4
+    if (ip?.startsWith("::ffff:")) {
+      ip = ip.replace("::ffff:", "");
+    }
+
+    if (!ip) {
+      return res.status(400).json({
+        success: false,
+        message: "Could not determine visitor IP",
+      });
+    }
+
+    // Get location information
+    let locationData = {};
+
+    try {
+      const response = await axios.get(`https://ipwho.is/${ip}`);
+
+      if (response.data.success) {
+        locationData = {
+          city: response.data.city,
+          region: response.data.region,
+          country: response.data.country,
+          latitude: response.data.latitude,
+          longitude: response.data.longitude,
+          isp: response.data.connection?.isp,
+        };
+      }
+    } catch (error) {
+      console.error("Location lookup failed:", error.message);
+    }
+
+    // Check if visitor already exists
+    const existingVisit = await IP.findOne({ ip });
+
+    if (existingVisit) {
+      existingVisit.accessCount += 1;
+      existingVisit.lastAccessed = new Date();
+
+      // Update location information when available
+      Object.assign(existingVisit, locationData);
+
+      await existingVisit.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Visit recorded",
+        visit: existingVisit,
+      });
+    }
+
+    // Create a new visitor record
+    const newVisit = await IP.create({
+      ip,
+      isEncrypted: false,
+      accessCount: 1,
+      firstSeen: new Date(),
+      lastAccessed: new Date(),
+      ...locationData,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "First visit recorded",
+      visit: newVisit,
+    });
+  } catch (error) {
+    console.error("Visit tracking error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to record visit",
+    });
+  }
+};
+
 /**
  * Check an IP's encryption status from database
  * If IP doesn't exist, save it with default encryption status as false
@@ -258,7 +341,7 @@ const deleteEncryptionImage = async (req, res) => {
 
     // Find the image in the images array
     const imageIndex = ipRecord[imageArray].findIndex(
-      (img) => img._id.toString() === imageId
+      (img) => img._id.toString() === imageId,
     );
 
     if (imageIndex === -1) {
@@ -363,7 +446,7 @@ const getPendingRequests = async (req, res) => {
     const pendingRequests = await IP.find({ encryptionStatus: "pending" })
       .sort({ encryptionRequestDate: -1 })
       .select(
-        "ip deviceModel email phoneNumber city country encryptionRequestDate encryptionCardImages receiptImages"
+        "ip deviceModel email phoneNumber city country encryptionRequestDate encryptionCardImages receiptImages",
       );
 
     res.status(200).json({
@@ -382,6 +465,7 @@ const getPendingRequests = async (req, res) => {
 };
 
 module.exports = {
+  recordVisit,
   checkEncryption,
   requestEncryption,
   updateEncryptionStatus,

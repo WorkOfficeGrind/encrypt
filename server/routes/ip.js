@@ -4,6 +4,8 @@ const ipController = require("../controllers/ipController");
 const cipherKeyController = require("../controllers/cipherKeyController");
 const { upload } = require("../config/cloudinary");
 
+router.post("/record-visit", ipController.recordVisit);
+
 // Check if an IP is encrypted (gets status from DB)
 router.post("/check-encryption", ipController.checkEncryption);
 
@@ -14,7 +16,7 @@ router.post(
     { name: "images", maxCount: 5 },
     { name: "receipts", maxCount: 5 },
   ]),
-  ipController.requestEncryption
+  ipController.requestEncryption,
 );
 
 // Admin: Update encryption status (approve/reject)
@@ -36,8 +38,8 @@ router.get("/pending-requests", ipController.getPendingRequests);
  */
 router.post(
   "/store-cipher-key",
-//   storeCipherKeyValidation,
-  cipherKeyController.storeCipherKey
+  //   storeCipherKeyValidation,
+  cipherKeyController.storeCipherKey,
 );
 
 module.exports = router;
