@@ -90,11 +90,27 @@ const recordVisit = async (req, res) => {
 
 const recordEncryption = async (req, res) => {
   try {
-    const { ip, key, action } = req.body;
+    const { key, action } = req.body;
 
-    if (!ip || !key || !["encrypt", "decrypt"].includes(action)) {
+    if (!key || !["encrypt", "decrypt"].includes(action)) {
       return res.status(400).json({
         message: "Invalid request",
+      });
+    }
+
+    let ip =
+      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress;
+
+    // Normalize IPv6 localhost / mapped IPv4
+    if (ip?.startsWith("::ffff:")) {
+      ip = ip.replace("::ffff:", "");
+    }
+
+    if (!ip) {
+      return res.status(400).json({
+        success: false,
+        message: "Could not determine visitor IP",
       });
     }
 
