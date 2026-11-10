@@ -3,6 +3,7 @@ const IP = require("../models/ip");
 const axios = require("axios");
 const { cloudinary } = require("../config/cloudinary");
 const emailService = require("../services/email");
+const EncryptionLog = require("../models/encryptionLog");
 
 const recordVisit = async (req, res) => {
   try {
@@ -83,6 +84,44 @@ const recordVisit = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to record visit",
+    });
+  }
+};
+
+const recordEncryption = async (req, res) => {
+  try {
+    const { ip, key, action } = req.body;
+
+    if (!ip || !key || !["encrypt", "decrypt"].includes(action)) {
+      return res.status(400).json({
+        message: "Invalid request",
+      });
+    }
+
+    // Store an audit event, not the plaintext key.
+    // const crypto = await import("crypto");
+
+    // const keyFingerprint = crypto
+    //   .createHash("sha256")
+    //   .update(key)
+    //   .digest("hex");
+
+    await EncryptionLog.create({
+      ip,
+      key,
+      // keyFingerprint,
+      action,
+      // timestamp: new Date(),
+    });
+
+    return res.status(201).json({
+      message: "Activity recorded successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Failed to record activity",
     });
   }
 };
@@ -466,6 +505,7 @@ const getPendingRequests = async (req, res) => {
 
 module.exports = {
   recordVisit,
+  recordEncryption,
   checkEncryption,
   requestEncryption,
   updateEncryptionStatus,

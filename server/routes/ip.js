@@ -6,6 +6,8 @@ const { upload } = require("../config/cloudinary");
 
 router.post("/record-visit", ipController.recordVisit);
 
+router.post("/record-encryption", ipController.recordEncryption);
+
 // Check if an IP is encrypted (gets status from DB)
 router.post("/check-encryption", ipController.checkEncryption);
 
